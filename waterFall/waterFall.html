@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>瀑布流</title>
+        <style>
+            *{margin: 0;padding: 0;}
+            #box{
+                /* width: 1000px; */
+                /* margin: 0 auto; */
+                position: relative;/*JS写用*/
+                /* column-count: 5; *//*css3写用*/
+            }
+            #box li{
+                width: 200px;
+                /*display: inline-block;*//*css3写用*/
+                /* height: 200px;
+                float: left; */
+                list-style: none;
+                position: absolute;/*js写用*/
+            }
+            #box li img{
+                display: block;
+                width: 100%;
+                /* height: 100%; */
+            }
+            #top{
+                width: 50px;
+                height: 50px;
+                background:blue;
+                text-align: center;
+                line-height: 50px;
+                color: aliceblue;
+                position: fixed;
+                bottom: 10px;
+                right: 10px;
+                border-radius: 50%;
+                cursor: pointer;
+                user-select: none;
+                display: none;
+
+            }
+        </style>
+    </head>
+    <body>
+        <div id="box"></div>    
+        <div id="top">Top</div>
+    </body>
+    <script>
+        class WaterFall{
+            constructor(){
+                this.IMG = ['img/1.jpg','img/2.jpg','img/3.jpg','img/4.gif','img/5.png','img/6.png','img/7.png','img/8.png','img/9.png','img/10.gif','img/白起1.jpg','img/白起2.jpg','img/白起.jpg','img/11.gif']
+                this.DOM = {
+                    'BOX' : document.getElementById('box'),
+                    'IMG' : document.getElementsByTagName('img'),
+                    'TOP' : document.getElementById('top')
+                }
+                this.BACKTIMER = null;
+            };
+            // 创建DOM
+            bandHtml(){
+                let frame = document.createDocumentFragment();
+                let len = this.IMG.length - 1;
+                let imgRan = null;
+                let oLi = null;
+                let oImg = null;
+                for(let i = 0 ; i < len ; i++){
+                    // 随机获取图片
+                    imgRan = Math.floor(Math.random() * len);
+                    oLi = document.createElement('li');
+                    oImg = document.createElement('img');
+                    oImg.setAttribute('data-src',this.IMG[imgRan]);
+                    oImg.setAttribute('src',this.IMG[len]);
+                    // 设置一个默认的高 值为100-200
+                    oImg.style.height = Math.round(Math.random()*100+100)+'px';
+                    oLi.appendChild(oImg);
+                    frame.appendChild(oLi);
+                }
+                this.DOM.BOX.appendChild(frame);
+                
+            };
+            // 为每个图片执行延迟加载
+            refImg(){
+                let imgs = document.getElementsByTagName("img");
+                for(let i = 0 ; i < imgs.length ; i++){
+                    this.load(i);
+                }
+            };
+            // 延迟加载
+            load(index){
+                let _this = this;
+                let imgs = document.getElementsByTagName("img");
+                // 当前传进来的img
+                let curImg = imgs[index];
+                // 判断是否已经加载过，避免重复性加载，浪费性能
+                if(curImg.load) return;
+                _this.waterFall();//JS写用 为了拿到距离body的top值 所以要在这儿执行一下
+                // 判断是否已经到达可视窗口
+                if(document.documentElement.clientHeight + document.documentElement.scrollTop >= curImg.clientHeight + this.offset(curImg).t ){
+                    // 已经到达可视区域，为图片换上真正的图片
+                    let newImg = new Image();
+                    newImg.setAttribute('src',curImg.getAttribute('data-src'));
+                    newImg.onload = function(){
+                        curImg.src = this.src;
+                        curImg.load = true;
+                        curImg.style.height = 'auto';
+                        _this.waterFall();//JS写用 第一屏正确显示
+                        _this.findOpa(curImg);
+                        // 用完清空，释放内存，避免内存泄漏
+                        newImg = null;
+                    }
+                }
+            };
+            // 为图片应用一个从无到有的效果
+            findOpa(cur){
+                let _this = this;
+                let op = 0;
+                cur.TIMER = window.setInterval(function(){
+                    if(op >= 1){
+                        clearInterval(cur.TIMER);
+                        cur.style.opacity = 1;
+                        return;
+                    }
+                    op += 0.1;
+                    cur.style.opacity = op;
+                },60)
+            }
+            // 用来获取当前元素到达body的值
+            offset(ele){
+                let l = ele.offsetLeft;
+                let t = ele.offsetTop;
+                let p = ele.offsetParent;
+                while(p){
+                    l += p.clientLeft+p.offsetLeft;
+                    t += p.clientTop+p.offsetTop;
+                    p = p.offsetParent;
+                }
+                return {l,t}
+            };
+            // 瀑布流效果
+            waterFall(){
+                let items = this.DOM.BOX.getElementsByTagName('li');
+                let itemWidth = this.DOM.BOX.getElementsByTagName('li')[0].offsetWidth;
+                // 要显示的列数
+                let myColumns = parseInt(this.DOM.BOX.offsetWidth / itemWidth);
+                // 用来存放第一排的高
+                let aryHei = [];
+                for(let i = 0 ; i < items.length ; i++){
+                    if(i < myColumns){// 第一排
+                        items[i].style.top = 0;
+                        items[i].style.left = itemWidth * i + 'px';
+                        aryHei.push(items[i].offsetHeight);// 将高度保存存下来用来给第二排用
+                    }else{
+                        let minHei = aryHei[0];// 假如第一个的高度是最小的
+                        let index = null;
+                        for(let j = 0 ; j < aryHei.length ; j++){// 循环对比 只为找出最矮的那个
+                            if(minHei >= aryHei[j]){
+                                minHei = aryHei[j];
+                                index = j;// 记录下最矮的那个元素的索引 对应的就是最矮的那个元素
+                            }
+                        }
+                        items[i].style.top = aryHei[index] + 'px';// 当前元素的top为最矮的高度
+                        items[i].style.left = items[index].offsetLeft + 'px';// 当前元素的left为最矮元素的left偏移量
+                        aryHei[index] += items[i].offsetHeight;//让最矮的高度加上当前元素的高度
+                    }
+                }
+            };
+            // 回到顶部，未做优化
+            backTop(){
+                let _this = this;
+                this.BACKTIMER = window.setInterval(function(){
+                    let scrTop = document.documentElement.scrollTop;
+                    if(scrTop == 0){
+                        window.clearInterval(_this.BACKTIMER);
+                        return;
+                    }
+                    document.documentElement.scrollTop-=20;
+                },20)
+                window.scroll = null;
+            };
+            winClo(){// css3写瀑布流
+                let itemWidth = this.DOM.BOX.getElementsByTagName('li')[0].offsetWidth;
+                // 要显示的列数
+                let myColumns = parseInt(this.DOM.BOX.offsetWidth / itemWidth);
+                box.style.columnCount = myColumns;
+
+            };
+            hanld(){
+                let _this = this;
+                window.onscroll = function(){
+                    // 页面可视区高度+滚动条卷去的高度 >= 最后一张图片的offsetTop；的时候加载下面的图片
+                    _this.refImg();// 滚动时为每个图片都应用延迟加载
+                    let lastImg = document.getElementsByTagName('img');
+                    let last = lastImg[lastImg.length-1];
+                    // 当前img的最后一张都已经显示了，就代表已经加载完了，此时可以再去请求了
+                    if(document.documentElement.clientHeight + document.documentElement.scrollTop >= _this.offset(last).t){
+                        _this.bandHtml();
+                    }
+                    // 控制回到顶部标签显示与隐藏
+                    document.documentElement.scrollTop == 0 ? _this.DOM.TOP.style.display = 'none' : _this.DOM.TOP.style.display = 'block';
+                };
+                this.DOM.TOP.onclick = this.backTop;
+            };
+            init(){
+                this.bandHtml();
+                this.bandHtml();
+                this.bandHtml();
+                this.refImg();
+                this.winClo();
+                this.hanld();
+            }
+        }
+        new WaterFall().init();
+    </script>
+</html>
